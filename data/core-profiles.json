@@ -1,0 +1,60 @@
+{
+  "profiles": [
+    {
+      "id": "harish_prabhavathy",
+      "name": "Harish Prabhavathy",
+      "username": "harish_prabhavathy",
+      "email": "harish@3amcore.com",
+      "passwordSet": false,
+      "hashedPassword": null
+    },
+    {
+      "id": "nantha",
+      "name": "Nantha",
+      "username": "nantha",
+      "email": "nantha@3amcore.com",
+      "passwordSet": false,
+      "hashedPassword": null
+    },
+    {
+      "id": "pradeep_rajan",
+      "name": "Pradeep Rajan",
+      "username": "pradeep_rajan",
+      "email": "pradeep@3amcore.com",
+      "passwordSet": false,
+      "hashedPassword": null
+    },
+    {
+      "id": "harathi",
+      "name": "Harathi",
+      "username": "harathi",
+      "email": "harathi@3amcore.com",
+      "passwordSet": false,
+      "hashedPassword": null
+    },
+    {
+      "id": "prasanna",
+      "name": "Prasanna",
+      "username": "prasanna",
+      "email": "prasanna@3amcore.com",
+      "passwordSet": false,
+      "hashedPassword": null
+    },
+    {
+      "id": "sarguna_prabhu",
+      "name": "Sarguna Prabhu",
+      "username": "sarguna_prabhu",
+      "email": "sarguna@3amcore.com",
+      "passwordSet": false,
+      "hashedPassword": null
+    },
+    {
+      "id": "naveen_senthazhal",
+      "name": "Naveen Senthazhal",
+      "username": "naveen_senthazhal",
+      "email": "naveen@3amcore.com",
+      "passwordSet": false,
+      "hashedPassword": null
+    }
+  ]
+}
