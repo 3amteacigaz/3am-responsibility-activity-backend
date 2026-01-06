@@ -5,8 +5,10 @@
       "name": "Harish Prabhavathy",
       "username": "harish_prabhavathy",
       "email": "harish@3amcore.com",
-      "passwordSet": false,
-      "hashedPassword": null
+      "passwordSet": true,
+      "hashedPassword": "$2a$10$W/8XaQdWC65fx8ztvEuWc.4Ad.M0w9/apEb2t337qFDX6ChaAl2km",
+      "createdAt": "2026-01-06T12:49:24.850Z",
+      "lastLogin": "2026-01-06T12:58:42.567Z"
     },
     {
       "id": "nantha",

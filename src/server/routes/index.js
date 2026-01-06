@@ -16,6 +16,69 @@ router.use('/api/responsibilities', responsibilityRoutes);
 
 console.log('Routes mounted: /api/auth, /api/core, /api/responsibilities');
 
+// Add a simple health check endpoint
+router.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Backend server is running',
+    timestamp: new Date().toISOString(),
+    routes: ['/api/auth', '/api/core', '/api/responsibilities']
+  });
+});
+
+// Add debug endpoint to list all routes
+router.get('/api/debug/routes', (req, res) => {
+  const routes = [];
+  
+  // Get all routes from the app
+  function extractRoutes(stack, prefix = '') {
+    stack.forEach(layer => {
+      if (layer.route) {
+        const methods = Object.keys(layer.route.methods);
+        routes.push({
+          path: prefix + layer.route.path,
+          methods: methods
+        });
+      } else if (layer.name === 'router' && layer.handle.stack) {
+        const routerPrefix = layer.regexp.source
+          .replace('\\', '')
+          .replace('(?=\\/|$)', '')
+          .replace('^', '');
+        extractRoutes(layer.handle.stack, routerPrefix);
+      }
+    });
+  }
+  
+  res.json({ 
+    message: 'Available routes',
+    routes: [
+      'GET /api/health',
+      'GET /api/debug/routes',
+      'POST /api/logout',
+      'GET /api/user',
+      'POST /api/firebase-signup',
+      'POST /api/firebase-login',
+      'POST /api/core-setup-password',
+      'GET /api/core-profiles',
+      'POST /api/core-profile-login',
+      'GET /api/core/profiles',
+      'POST /api/core/setup-password',
+      'POST /api/core/login',
+      'POST /api/responsibilities',
+      'GET /api/responsibilities',
+      'GET /api/responsibilities/all',
+      'PUT /api/responsibilities/:id',
+      'DELETE /api/responsibilities/:id',
+      'GET /api/responsibilities/dates',
+      'GET /api/responsibilities/stats',
+      'POST /api/auth/logout',
+      'GET /api/auth/user',
+      'POST /api/auth/firebase-signup',
+      'POST /api/auth/firebase-login'
+    ]
+  });
+});
+
 /**
  * Legacy API route mappings for backward compatibility
  */
@@ -144,6 +207,62 @@ router.post('/api/firebase-login', async (req, res) => {
 });
 
 // Legacy core profile routes - direct handlers
+router.post('/api/core-setup-password', async (req, res) => {
+  console.log('Legacy route /api/core-setup-password hit');
+  try {
+    const { profileId, password } = req.body;
+    const bcrypt = require('bcryptjs');
+    const fs = require('fs').promises;
+    const path = require('path');
+    const config = require('../config');
+    const PROFILES_FILE = path.join(process.cwd(), 'data', 'core-profiles.json');
+
+    if (!profileId || !password) {
+      return res.status(400).json({ error: 'Profile ID and password are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    // Read current profiles
+    const data = await fs.readFile(PROFILES_FILE, 'utf8');
+    const profiles = JSON.parse(data);
+
+    // Find the profile
+    const profileIndex = profiles.profiles.findIndex(p => p.id === profileId);
+    if (profileIndex === -1) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    const profile = profiles.profiles[profileIndex];
+
+    // Check if password is already set
+    if (profile.passwordSet) {
+      return res.status(400).json({ error: 'Password already set for this profile' });
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, config.BCRYPT_ROUNDS);
+
+    // Update the profile
+    profiles.profiles[profileIndex] = {
+      ...profile,
+      hashedPassword,
+      passwordSet: true,
+      createdAt: new Date().toISOString()
+    };
+
+    // Save back to file
+    await fs.writeFile(PROFILES_FILE, JSON.stringify(profiles, null, 2));
+
+    res.json({ message: 'Password set successfully' });
+  } catch (error) {
+    console.error('Setup password error:', error);
+    res.status(500).json({ error: 'Failed to set password' });
+  }
+});
+
 router.get('/api/core-profiles', async (req, res) => {
   console.log('Legacy route /api/core-profiles hit');
   try {

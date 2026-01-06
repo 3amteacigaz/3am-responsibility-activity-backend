@@ -12,6 +12,10 @@ const server = app.listen(PORT, () => {
   console.log(`📱 Environment: ${config.NODE_ENV}`);
   console.log(`🔥 Firebase Project: ${config.FIREBASE_PROJECT_ID}`);
   console.log(`📊 Database: Firebase Firestore Only`);
+  console.log(`🌐 CORS Origin: ${config.CORS_ORIGIN}`);
+  console.log(`🔗 Server URL: http://localhost:${PORT}`);
+  console.log(`🔍 Health Check: http://localhost:${PORT}/api/health`);
+  console.log(`📋 Routes Debug: http://localhost:${PORT}/api/debug/routes`);
 });
 
 // Graceful shutdown
