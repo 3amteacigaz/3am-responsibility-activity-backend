@@ -139,6 +139,7 @@ router.post('/login', authLimiter, async (req, res) => {
       { 
         userId: profile.id, 
         username: profile.username,
+        name: profile.name,
         userType: 'core',
         email: profile.email
       },
@@ -157,6 +158,7 @@ router.post('/login', authLimiter, async (req, res) => {
       user: {
         userId: profile.id,
         username: profile.username,
+        name: profile.name,
         userType: 'core',
         email: profile.email
       },

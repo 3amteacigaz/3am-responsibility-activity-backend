@@ -8,7 +8,7 @@
       "passwordSet": true,
       "hashedPassword": "$2a$10$W/8XaQdWC65fx8ztvEuWc.4Ad.M0w9/apEb2t337qFDX6ChaAl2km",
       "createdAt": "2026-01-06T12:49:24.850Z",
-      "lastLogin": "2026-01-06T12:58:42.567Z"
+      "lastLogin": "2026-01-10T09:53:15.385Z"
     },
     {
       "id": "nantha",
@@ -39,14 +39,6 @@
       "name": "Prasanna",
       "username": "prasanna",
       "email": "prasanna@3amcore.com",
-      "passwordSet": false,
-      "hashedPassword": null
-    },
-    {
-      "id": "sarguna_prabhu",
-      "name": "Sarguna Prabhu",
-      "username": "sarguna_prabhu",
-      "email": "sarguna@3amcore.com",
       "passwordSet": false,
       "hashedPassword": null
     },

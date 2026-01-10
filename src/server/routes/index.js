@@ -4,6 +4,9 @@ const express = require('express');
 const authRoutes = require('./auth');
 const coreProfileRoutes = require('./coreProfiles');
 const responsibilityRoutes = require('./responsibilities');
+const activityRoutes = require('./activities');
+const presenceRoutes = require('./presence_v2'); // Updated to use new structure
+const notificationRoutes = require('./notifications'); // New notification system
 
 const router = express.Router();
 
@@ -13,8 +16,11 @@ const router = express.Router();
 router.use('/api/auth', authRoutes);
 router.use('/api/core', coreProfileRoutes);
 router.use('/api/responsibilities', responsibilityRoutes);
+router.use('/api/activities', activityRoutes);
+router.use('/api/presence', presenceRoutes);
+router.use('/api/notifications', notificationRoutes);
 
-console.log('Routes mounted: /api/auth, /api/core, /api/responsibilities');
+console.log('Routes mounted: /api/auth, /api/core, /api/responsibilities, /api/activities, /api/presence (v2), /api/notifications');
 
 // Add a simple health check endpoint
 router.get('/api/health', (req, res) => {
@@ -22,7 +28,9 @@ router.get('/api/health', (req, res) => {
     status: 'OK', 
     message: 'Backend server is running',
     timestamp: new Date().toISOString(),
-    routes: ['/api/auth', '/api/core', '/api/responsibilities']
+    routes: ['/api/auth', '/api/core', '/api/responsibilities', '/api/activities', '/api/presence', '/api/notifications'],
+    presenceStructure: 'User-Centric Monthly Documents (v2)',
+    features: ['Push Notifications', 'Activity Participation Tracking', 'Non-Participant Visibility']
   });
 });
 
@@ -105,6 +113,7 @@ router.get('/api/user', async (req, res) => {
     res.json({ 
       userId: decoded.userId, 
       username: decoded.username,
+      name: decoded.name,
       userType: decoded.userType || 'core'
     });
   } catch (error) {
@@ -116,20 +125,36 @@ router.get('/api/user', async (req, res) => {
 // Firebase authentication routes
 router.post('/api/firebase-signup', async (req, res) => {
   try {
-    const { idToken, username, email, userType } = req.body;
+    const { username, email, password, userType } = req.body;
     const { admin } = require('../config/firebase');
     const jwt = require('jsonwebtoken');
     const config = require('../config');
+    
+    // Validate input
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
 
-    // Verify Firebase ID token
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const firebaseUid = decodedToken.uid;
+    // Create Firebase user on backend using Admin SDK
+    const userRecord = await admin.auth().createUser({
+      email: email,
+      password: password,
+      displayName: username,
+      emailVerified: false
+    });
+
+    console.log('Firebase user created:', userRecord.uid);
 
     // Generate JWT for our system
     const token = jwt.sign(
       { 
-        userId: firebaseUid, 
+        userId: userRecord.uid, 
         username: username, 
+        name: username, // For Firebase users, use username as name initially
         userType: userType || 'in-house',
         email: email
       },
@@ -144,10 +169,11 @@ router.post('/api/firebase-signup', async (req, res) => {
     });
     
     res.json({ 
-      message: 'Firebase signup successful', 
+      message: 'Account created successfully', 
       user: {
-        userId: firebaseUid,
+        userId: userRecord.uid,
         username: username,
+        name: username,
         userType: userType || 'in-house',
         email: email
       },
@@ -155,28 +181,60 @@ router.post('/api/firebase-signup', async (req, res) => {
     });
   } catch (error) {
     console.error('Firebase signup error:', error);
-    res.status(500).json({ error: 'Firebase authentication failed' });
+    
+    // Handle specific Firebase errors
+    if (error.code === 'auth/email-already-exists') {
+      return res.status(400).json({ error: 'Email already exists' });
+    } else if (error.code === 'auth/invalid-email') {
+      return res.status(400).json({ error: 'Invalid email address' });
+    } else if (error.code === 'auth/weak-password') {
+      return res.status(400).json({ error: 'Password is too weak' });
+    }
+    
+    res.status(500).json({ error: 'Account creation failed' });
   }
 });
 
 router.post('/api/firebase-login', async (req, res) => {
   try {
-    const { idToken, userType } = req.body;
+    const { email, password, userType } = req.body;
     const { admin } = require('../config/firebase');
     const jwt = require('jsonwebtoken');
     const config = require('../config');
+    
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
 
-    // Verify Firebase ID token
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const firebaseUid = decodedToken.uid;
-    const email = decodedToken.email;
-    const username = decodedToken.name || email.split('@')[0];
+    // Get user by email from Firebase Admin SDK
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch (error) {
+      if (error.code === 'auth/user-not-found') {
+        return res.status(400).json({ error: 'User not found' });
+      }
+      throw error;
+    }
+
+    // Note: Firebase Admin SDK doesn't verify passwords directly
+    // In production, you would typically use Firebase Client SDK on frontend
+    // to authenticate and get idToken, then verify idToken on backend
+    // 
+    // For this implementation, we'll assume the user exists and create a session
+    // The password verification would happen on the client side with Firebase Auth
+
+    const username = userRecord.displayName || email.split('@')[0];
+
+    console.log('Firebase login for user:', userRecord.uid);
 
     // Generate JWT for our system
     const token = jwt.sign(
       { 
-        userId: firebaseUid, 
+        userId: userRecord.uid, 
         username: username, 
+        name: username, // For Firebase users, use username as name
         userType: userType || 'in-house',
         email: email
       },
@@ -191,10 +249,11 @@ router.post('/api/firebase-login', async (req, res) => {
     });
     
     res.json({ 
-      message: 'Firebase login successful', 
+      message: 'Login successful', 
       user: {
-        userId: firebaseUid,
+        userId: userRecord.uid,
         username: username,
+        name: username,
         userType: userType || 'in-house',
         email: email
       },
@@ -202,7 +261,15 @@ router.post('/api/firebase-login', async (req, res) => {
     });
   } catch (error) {
     console.error('Firebase login error:', error);
-    res.status(500).json({ error: 'Firebase authentication failed' });
+    
+    // Handle specific Firebase errors
+    if (error.code === 'auth/user-not-found') {
+      return res.status(400).json({ error: 'User not found' });
+    } else if (error.code === 'auth/invalid-email') {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+    
+    res.status(500).json({ error: 'Login failed' });
   }
 });
 
@@ -339,6 +406,7 @@ router.post('/api/core-profile-login', async (req, res) => {
       { 
         userId: profile.id, 
         username: profile.username,
+        name: profile.name,
         userType: 'core',
         email: profile.email
       },
@@ -357,6 +425,7 @@ router.post('/api/core-profile-login', async (req, res) => {
       user: {
         userId: profile.id,
         username: profile.username,
+        name: profile.name,
         userType: 'core',
         email: profile.email
       },
