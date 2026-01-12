@@ -25,13 +25,9 @@ console.log('🔔 Web Push configured with VAPID keys');
  */
 const getAllUsers = async () => {
   try {
-    // Get core users from JSON file
-    const fs = require('fs').promises;
-    const path = require('path');
-    const PROFILES_FILE = path.join(process.cwd(), 'data', 'core-profiles.json');
-    
-    const data = await fs.readFile(PROFILES_FILE, 'utf8');
-    const profiles = JSON.parse(data);
+    // Get core users from Firestore service
+    const coreProfilesService = require('../services/coreProfilesService');
+    const profiles = await coreProfilesService.getAllProfiles();
     
     const coreUsers = profiles.profiles.map(profile => ({
       userId: profile.id,

@@ -1,8 +1,12 @@
 const app = require('./app');
 const config = require('./config');
+const coreProfilesService = require('./services/coreProfilesService');
 
 // Import Firebase configuration
 require('./config/firebase'); // Initialize Firebase
+
+// Initialize core profiles check
+coreProfilesService.initializeProfiles();
 
 // Start server
 const PORT = config.PORT;

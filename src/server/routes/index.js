@@ -279,10 +279,8 @@ router.post('/api/core-setup-password', async (req, res) => {
   try {
     const { profileId, password } = req.body;
     const bcrypt = require('bcryptjs');
-    const fs = require('fs').promises;
-    const path = require('path');
     const config = require('../config');
-    const PROFILES_FILE = path.join(process.cwd(), 'data', 'core-profiles.json');
+    const coreProfilesService = require('../services/coreProfilesService');
 
     if (!profileId || !password) {
       return res.status(400).json({ error: 'Profile ID and password are required' });
@@ -292,17 +290,11 @@ router.post('/api/core-setup-password', async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
-    // Read current profiles
-    const data = await fs.readFile(PROFILES_FILE, 'utf8');
-    const profiles = JSON.parse(data);
-
-    // Find the profile
-    const profileIndex = profiles.profiles.findIndex(p => p.id === profileId);
-    if (profileIndex === -1) {
+    // Get the profile
+    const profile = await coreProfilesService.getProfile(profileId);
+    if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
     }
-
-    const profile = profiles.profiles[profileIndex];
 
     // Check if password is already set
     if (profile.passwordSet) {
@@ -313,17 +305,13 @@ router.post('/api/core-setup-password', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, config.BCRYPT_ROUNDS);
 
     // Update the profile
-    profiles.profiles[profileIndex] = {
-      ...profile,
-      hashedPassword,
-      passwordSet: true,
-      createdAt: new Date().toISOString()
-    };
-
-    // Save back to file
-    await fs.writeFile(PROFILES_FILE, JSON.stringify(profiles, null, 2));
-
-    res.json({ message: 'Password set successfully' });
+    const success = await coreProfilesService.setPassword(profileId, hashedPassword);
+    
+    if (success) {
+      res.json({ message: 'Password set successfully' });
+    } else {
+      res.status(500).json({ error: 'Failed to set password' });
+    }
   } catch (error) {
     console.error('Setup password error:', error);
     res.status(500).json({ error: 'Failed to set password' });
@@ -333,12 +321,8 @@ router.post('/api/core-setup-password', async (req, res) => {
 router.get('/api/core-profiles', async (req, res) => {
   console.log('Legacy route /api/core-profiles hit');
   try {
-    const fs = require('fs').promises;
-    const path = require('path');
-    const PROFILES_FILE = path.join(process.cwd(), 'data', 'core-profiles.json');
-    
-    const data = await fs.readFile(PROFILES_FILE, 'utf8');
-    const profiles = JSON.parse(data);
+    const coreProfilesService = require('../services/coreProfilesService');
+    const profiles = await coreProfilesService.getAllProfiles();
     
     console.log('Loaded profiles:', profiles.profiles.length);
     
@@ -366,21 +350,15 @@ router.post('/api/core-profile-login', async (req, res) => {
     const { profileId, password } = req.body;
     const bcrypt = require('bcryptjs');
     const jwt = require('jsonwebtoken');
-    const fs = require('fs').promises;
-    const path = require('path');
     const config = require('../config');
-    const PROFILES_FILE = path.join(process.cwd(), 'data', 'core-profiles.json');
+    const coreProfilesService = require('../services/coreProfilesService');
 
     if (!profileId || !password) {
       return res.status(400).json({ error: 'Profile ID and password are required' });
     }
 
-    // Read profiles
-    const data = await fs.readFile(PROFILES_FILE, 'utf8');
-    const profiles = JSON.parse(data);
-
-    // Find the profile
-    const profile = profiles.profiles.find(p => p.id === profileId);
+    // Get the profile
+    const profile = await coreProfilesService.getProfile(profileId);
     if (!profile) {
       return res.status(404).json({ error: 'Profile not found' });
     }
@@ -397,9 +375,7 @@ router.post('/api/core-profile-login', async (req, res) => {
     }
 
     // Update last login
-    const profileIndex = profiles.profiles.findIndex(p => p.id === profileId);
-    profiles.profiles[profileIndex].lastLogin = new Date().toISOString();
-    await fs.writeFile(PROFILES_FILE, JSON.stringify(profiles, null, 2));
+    await coreProfilesService.updateLastLogin(profileId);
 
     // Generate JWT
     const token = jwt.sign(
