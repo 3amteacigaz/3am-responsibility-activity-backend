@@ -1,3 +1,8 @@
+/**
+ * Firebase Configuration
+ * Uses Firebase Admin SDK for Node.js backend
+ */
+
 const admin = require('firebase-admin');
 
 // Firebase Admin SDK Configuration from environment variables

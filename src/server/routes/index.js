@@ -6,6 +6,7 @@ const coreProfileRoutes = require('./coreProfiles');
 const responsibilityRoutes = require('./responsibilities');
 const activityRoutes = require('./activities');
 const presenceRoutes = require('./presence_v2'); // Updated to use new structure
+const inHousePresenceRoutes = require('./inHousePresence'); // New in-house presence for core team
 const notificationRoutes = require('./notifications'); // New notification system
 
 const router = express.Router();
@@ -18,9 +19,10 @@ router.use('/api/core', coreProfileRoutes);
 router.use('/api/responsibilities', responsibilityRoutes);
 router.use('/api/activities', activityRoutes);
 router.use('/api/presence', presenceRoutes);
+router.use('/api/in-house-presence', inHousePresenceRoutes);
 router.use('/api/notifications', notificationRoutes);
 
-console.log('Routes mounted: /api/auth, /api/core, /api/responsibilities, /api/activities, /api/presence (v2), /api/notifications');
+console.log('Routes mounted: /api/auth, /api/core, /api/responsibilities, /api/activities, /api/presence (v2), /api/in-house-presence, /api/notifications');
 
 // Add a simple health check endpoint
 router.get('/api/health', (req, res) => {
@@ -28,7 +30,7 @@ router.get('/api/health', (req, res) => {
     status: 'OK', 
     message: 'Backend server is running',
     timestamp: new Date().toISOString(),
-    routes: ['/api/auth', '/api/core', '/api/responsibilities', '/api/activities', '/api/presence', '/api/notifications'],
+    routes: ['/api/auth', '/api/core', '/api/responsibilities', '/api/activities', '/api/presence', '/api/in-house-presence', '/api/notifications'],
     presenceStructure: 'User-Centric Monthly Documents (v2)',
     features: ['Push Notifications', 'Activity Participation Tracking', 'Non-Participant Visibility']
   });

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "3AM Core Responsibility Management - Backend API",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"

@@ -1,20 +1,33 @@
+/**
+ * Core Profiles Service
+ * Handles core team profile management
+ */
+
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { firestore } = require('../config/firebase');
+const config = require('../config');
 
 class CoreProfilesService {
   constructor() {
-    this.collection = firestore.collection('core-profiles');
+    this.collectionName = 'core-profiles';
+  }
+  
+  getCollection() {
+    return firestore.collection(this.collectionName);
   }
 
   /**
    * Initialize core profiles in Firestore (manual setup if needed)
-   * Note: JSON file migration removed - profiles should be added directly to Firestore
    */
   async initializeProfiles() {
     try {
       console.log('🔄 Checking core profiles in Firestore...');
       
+      const collection = this.getCollection();
+      
       // Check if profiles already exist in Firestore
-      const snapshot = await this.collection.limit(1).get();
+      const snapshot = await collection.limit(1).get();
       if (!snapshot.empty) {
         console.log('✅ Core profiles exist in Firestore');
         return;
@@ -33,7 +46,8 @@ class CoreProfilesService {
    */
   async getAllProfiles() {
     try {
-      const snapshot = await this.collection.get();
+      const collection = this.getCollection();
+      const snapshot = await collection.get();
       
       if (snapshot.empty) {
         console.log('⚠️ No profiles found in Firestore');
@@ -57,7 +71,8 @@ class CoreProfilesService {
    */
   async getProfile(profileId) {
     try {
-      const doc = await this.collection.doc(profileId).get();
+      const collection = this.getCollection();
+      const doc = await collection.doc(profileId).get();
       
       if (!doc.exists) {
         return null;
@@ -75,7 +90,8 @@ class CoreProfilesService {
    */
   async updateProfile(profileId, updates) {
     try {
-      const docRef = this.collection.doc(profileId);
+      const collection = this.getCollection();
+      const docRef = collection.doc(profileId);
       await docRef.update({
         ...updates,
         updatedAt: new Date().toISOString()
@@ -107,6 +123,93 @@ class CoreProfilesService {
     return await this.updateProfile(profileId, {
       lastLogin: new Date().toISOString()
     });
+  }
+  
+  /**
+   * Setup password for a profile
+   */
+  async setupPassword(data) {
+    const { profileId, password } = data;
+    
+    // Get the profile
+    const profile = await this.getProfile(profileId);
+    if (!profile) {
+      const error = new Error('Profile not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Check if password is already set
+    if (profile.passwordSet) {
+      const error = new Error('Password already set for this profile');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, config.BCRYPT_ROUNDS);
+
+    // Update the profile
+    await this.setPassword(profileId, hashedPassword);
+    
+    return { success: true };
+  }
+  
+  /**
+   * Login with core profile
+   */
+  async login(data) {
+    const { profileId, password } = data;
+    
+    // Get the profile
+    const profile = await this.getProfile(profileId);
+    if (!profile) {
+      const error = new Error('Profile not found');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Check if password is set
+    if (!profile.passwordSet || !profile.hashedPassword) {
+      const error = new Error('Password not set for this profile');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Verify password
+    const isMatch = await bcrypt.compare(password, profile.hashedPassword);
+    if (!isMatch) {
+      const error = new Error('Invalid password');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Update last login
+    await this.updateLastLogin(profileId);
+
+    // Generate JWT
+    const token = jwt.sign(
+      {
+        userId: profile.id,
+        username: profile.username,
+        name: profile.name,
+        userType: 'core',
+        email: profile.email
+      },
+      config.JWT_SECRET,
+      { expiresIn: config.JWT_EXPIRE }
+    );
+
+    return {
+      user: {
+        userId: profile.id,
+        username: profile.username,
+        name: profile.name,
+        userType: 'core',
+        email: profile.email
+      },
+      token: token
+    };
   }
 }
 
