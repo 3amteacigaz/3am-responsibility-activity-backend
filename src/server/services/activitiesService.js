@@ -9,23 +9,42 @@ const { firestore } = require('../config/firebase');
  * Create a new activity (Core team only)
  */
 async function createActivity(data, user) {
-  const { title, description, date, startTime, endTime } = data;
+  console.log('🎯 createActivity called with data:', JSON.stringify(data, null, 2));
+  console.log('🎯 User:', user.userId, user.name || user.username);
   
-  // Validate required fields
-  if (!title || !description || !date || !startTime || !endTime) {
-    const error = new Error('Title, description, date, start time, and end time are required');
+  const { title, description, date, startTime, endTime, activityType, assignedUsers } = data;
+  
+  // Validate required fields (date and time are now optional)
+  if (!title || !description) {
+    const error = new Error('Title and description are required');
     error.statusCode = 400;
     throw error;
   }
 
-  // Validate that end time is after start time
-  const start = new Date(`${date}T${startTime}`);
-  const end = new Date(`${date}T${endTime}`);
-  
-  if (end <= start) {
-    const error = new Error('End time must be after start time');
+  // Validate activity type
+  if (!activityType || !['group', 'individual'].includes(activityType)) {
+    const error = new Error('Activity type must be "group" or "individual"');
     error.statusCode = 400;
     throw error;
+  }
+
+  // Validate individual activity has assigned users
+  if (activityType === 'individual' && (!assignedUsers || assignedUsers.length === 0)) {
+    const error = new Error('Individual activities must have at least one assigned user');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Validate that end time is after start time (only if both are provided)
+  if (date && startTime && endTime) {
+    const start = new Date(`${date}T${startTime}`);
+    const end = new Date(`${date}T${endTime}`);
+    
+    if (end <= start) {
+      const error = new Error('End time must be after start time');
+      error.statusCode = 400;
+      throw error;
+    }
   }
 
   // Check if user is core team member
@@ -35,12 +54,33 @@ async function createActivity(data, user) {
     throw error;
   }
 
+  // Get assigned user names for individual activities
+  let assignedUserNames = [];
+  if (activityType === 'individual' && assignedUsers && assignedUsers.length > 0) {
+    try {
+      // Fetch user details from Firebase Auth
+      const { admin } = require('../config/firebase');
+      const userPromises = assignedUsers.map(userId => admin.auth().getUser(userId));
+      const userRecords = await Promise.all(userPromises);
+      
+      assignedUserNames = userRecords.map(record => {
+        return record.displayName || record.email?.split('@')[0] || 'Unknown';
+      });
+    } catch (error) {
+      console.error('Error fetching assigned user names:', error);
+      // Continue without names if fetch fails
+    }
+  }
+
   const activityData = {
     title: title.trim(),
     description: description.trim(),
-    date,
-    startTime,
-    endTime,
+    date: date || null,
+    startTime: startTime || null,
+    endTime: endTime || null,
+    activityType, // 'group' or 'individual'
+    assignedUsers: activityType === 'individual' ? assignedUsers : [], // Array of user IDs
+    assignedUserNames: activityType === 'individual' ? assignedUserNames : [], // Array of user names
     createdBy: user.userId,
     createdByName: user.name || user.username,
     createdAt: new Date().toISOString(),
@@ -49,9 +89,14 @@ async function createActivity(data, user) {
     participantCount: 0
   };
 
+  console.log('💾 Saving activity to database:', JSON.stringify(activityData, null, 2));
+
   const docRef = await firestore.collection('activities').add(activityData);
   
-  console.log(`Activity created by ${user.name || user.username}: ${title}`);
+  console.log(`${activityType.charAt(0).toUpperCase() + activityType.slice(1)} activity created by ${user.name || user.username}: ${title}`);
+  if (activityType === 'individual') {
+    console.log(`Assigned to: ${assignedUserNames.join(', ')}`);
+  }
   
   return {
     activityId: docRef.id,

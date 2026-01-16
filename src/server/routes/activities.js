@@ -11,52 +11,18 @@ const router = express.Router();
  */
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { title, description, date, startTime, endTime } = req.body;
+    const activitiesService = require('../services/activitiesService');
     
-    // Validate required fields
-    if (!title || !description || !date || !startTime || !endTime) {
-      return res.status(400).json({ error: 'Title, description, date, start time, and end time are required' });
-    }
-
-    // Validate that end time is after start time
-    const start = new Date(`${date}T${startTime}`);
-    const end = new Date(`${date}T${endTime}`);
+    // Call the service function which has all the validation and logic
+    const result = await activitiesService.createActivity(req.body, req.user);
     
-    if (end <= start) {
-      return res.status(400).json({ error: 'End time must be after start time' });
-    }
-
-    // Check if user is core team member
-    if (req.user.userType !== 'core') {
-      return res.status(403).json({ error: 'Only core team members can create activities' });
-    }
-
-    const activityData = {
-      title: title.trim(),
-      description: description.trim(),
-      date,
-      startTime,
-      endTime,
-      createdBy: req.user.userId,
-      createdByName: req.user.name || req.user.username, // Use name if available
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'active',
-      participantCount: 0
-    };
-
-    const docRef = await firestore.collection('activities').add(activityData);
-    
-    console.log(`Activity created by ${req.user.name || req.user.username}: ${title}`);
-    
-    res.status(201).json({
-      message: 'Activity created successfully',
-      activityId: docRef.id,
-      activity: { id: docRef.id, ...activityData }
-    });
+    res.status(201).json(result);
   } catch (error) {
     console.error('Error creating activity:', error);
-    res.status(500).json({ error: 'Failed to create activity' });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ 
+      error: error.message || 'Error creating activity' 
+    });
   }
 });
 
